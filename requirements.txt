@@ -1,0 +1,9 @@
+yfinance
+pandas
+sqlalchemy
+psycopg2-binary
+requests
+feedparser
+tqdm
+python-dotenv
+pytest

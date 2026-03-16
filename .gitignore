@@ -1,0 +1,19 @@
+# Environments
+.env
+
+# Virtual environments
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+
+# Local databases and data files
+*.sqlite
+*.db
+data/
+*.csv
+*.json
+
+# Jupyter
+.ipynb_checkpoints/
