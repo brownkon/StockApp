@@ -20,8 +20,16 @@ RSS_FEEDS = {
     'CNBC': 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664'
 }
 
-def clean_duplicate_sentiment(session, source, text):
-    """Simple check for exact duplicates."""
+def get_existing_ids(session):
+    records = session.query(RawSentimentText.external_id).filter(RawSentimentText.external_id.isnot(None)).all()
+    return {r[0] for r in records}
+
+def clean_duplicate_sentiment(session, source, text, external_id=None, existing_ids_cache=None):
+    """Simple check for exact duplicates or by external_id if available."""
+    if external_id and existing_ids_cache is not None:
+        return external_id in existing_ids_cache
+    if external_id:
+        return session.query(RawSentimentText).filter_by(external_id=external_id).first() is not None
     return session.query(RawSentimentText).filter_by(source=source, text_content=text).first() is not None
 
 def fetch_reddit_sentiment(session, mode):
@@ -31,6 +39,7 @@ def fetch_reddit_sentiment(session, mode):
     
     total_added = 0
     tqdm_subs = tqdm(SUBREDDITS, desc="Ingesting Reddit Sentiment (JSON Web Scrape)")
+    existing_ids_cache = get_existing_ids(session)
     
     for sub_name in tqdm_subs:
         try:
@@ -51,16 +60,20 @@ def fetch_reddit_sentiment(session, mode):
                 created_utc = post.get('created_utc')
                 if not created_utc: continue
                 
+                post_id = post.get('name') or post.get('id')
+                
                 dt = datetime.fromtimestamp(created_utc, tz=timezone.utc)
                 source_label = f"Reddit: r/{sub_name}"
                 
-                if not clean_duplicate_sentiment(session, source_label, text_content):
+                if not clean_duplicate_sentiment(session, source_label, text_content, external_id=post_id, existing_ids_cache=existing_ids_cache):
                     record = RawSentimentText(
                         source=source_label,
+                        external_id=post_id,
                         timestamp=dt,
                         text_content=text_content
                     )
                     session.add(record)
+                    existing_ids_cache.add(post_id)
                     total_added += 1
             session.commit()
             time.sleep(2) # Sleep to respect Reddit rate limits
@@ -74,6 +87,7 @@ def fetch_reddit_sentiment(session, mode):
 def fetch_rss_sentiment(session):
     total_added = 0
     tqdm_feeds = tqdm(RSS_FEEDS.items(), desc="Ingesting RSS Sentiment")
+    existing_ids_cache = get_existing_ids(session)
     
     for source_name, url in tqdm_feeds:
         try:
@@ -88,14 +102,18 @@ def fetch_rss_sentiment(session):
                     import time
                     dt = datetime.fromtimestamp(time.mktime(entry.published_parsed), tz=timezone.utc)
                 
+                entry_id = getattr(entry, 'id', getattr(entry, 'link', None))
+                
                 source_label = f"RSS: {source_name}"
-                if not clean_duplicate_sentiment(session, source_label, text_content):
+                if not clean_duplicate_sentiment(session, source_label, text_content, external_id=entry_id, existing_ids_cache=existing_ids_cache):
                     record = RawSentimentText(
                         source=source_label,
+                        external_id=entry_id,
                         timestamp=dt,
                         text_content=text_content
                     )
                     session.add(record)
+                    if entry_id: existing_ids_cache.add(entry_id)
                     total_added += 1
             session.commit()
         except Exception as e:

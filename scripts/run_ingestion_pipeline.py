@@ -3,6 +3,9 @@ import logging
 from ingest_market_data import run_ingestion as run_market
 from ingest_macro_data import run_ingestion as run_macro
 from ingest_sentiment_data import run_ingestion as run_sentiment
+from calculate_indicators import run_calculations as run_technical_indicators
+from ingest_options_data import run_ingestion as run_options
+from view_data import main as generate_report
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,6 +20,12 @@ def main(mode):
         logger.error(f"Market data ingestion failed: {e}")
         
     try:
+        logger.info("Initializing Technical Indicators Calculation...")
+        run_technical_indicators()
+    except Exception as e:
+        logger.error(f"Technical indicators calculation failed: {e}")
+        
+    try:
         logger.info("Initializing Macro Data Ingestion...")
         run_macro(mode=mode)
     except Exception as e:
@@ -28,7 +37,19 @@ def main(mode):
     except Exception as e:
         logger.error(f"Sentiment data ingestion failed: {e}")
         
+    try:
+        logger.info("Initializing Options Data Ingestion...")
+        run_options(mode=mode)
+    except Exception as e:
+        logger.error(f"Options data ingestion failed: {e}")
+        
     logger.info("--- Data Ingestion Pipeline Complete ---")
+    
+    logger.info("Generating pipeline summary report...")
+    try:
+        generate_report()
+    except Exception as e:
+        logger.error(f"Could not generate report: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -13,10 +13,32 @@ logger = logging.getLogger(__name__)
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 BASE_URL = "https://api.stlouisfed.org/fred/series/observations"
 
+# Expanded indicators to cover employment, inflation, economic output, and credit
 MACRO_INDICATORS = {
+    # Interest Rates & Yields
     'FEDFUNDS': 'Effective Federal Funds Rate',
-    'CPIAUCSL': 'Consumer Price Index',
-    'DGS10': '10-Year Treasury CMR'
+    'DGS10': '10-Year Treasury CMR',
+    'DGS2': '2-Year Treasury CMR',
+    'T10Y2Y': '10-Year Minus 2-Year Treasury Yield Spread',
+    'MORTGAGE30US': '30-Year Fixed Rate Mortgage Average',
+    
+    # Inflation & Employment
+    'CPIAUCSL': 'Consumer Price Index (Inflation)',
+    'CPILFESL': 'Core CPI (Excluding Food and Energy)',
+    'UNRATE': 'Unemployment Rate',
+    'PAYEMS': 'Total Nonfarm Payrolls (Employment)',
+    'ICSA': 'Initial Claims (Unemployment)',
+    
+    # Growth & Production
+    'GDPC1': 'Real Gross Domestic Product',
+    'INDPRO': 'Industrial Production Index',
+    'RSAFS': 'Advance Retail Sales',
+    'HOUST': 'New Privately-Owned Housing Units Started',
+    
+    # Credit & Sentiment
+    'M2SL': 'M2 Money Supply',
+    'PSAVERT': 'Personal Saving Rate',
+    'UMCSENT': 'University of Michigan: Consumer Sentiment'
 }
 
 def fetch_macro_data(session, series_id, indicator_name, start_date, end_date):
@@ -38,6 +60,14 @@ def fetch_macro_data(session, series_id, indicator_name, start_date, end_date):
         data = response.json()
         
         observations = data.get('observations', [])
+        
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        existing_records = session.query(MacroIndicator).filter(
+            MacroIndicator.indicator_name == indicator_name,
+            MacroIndicator.date >= start_date_obj
+        ).all()
+        existing_map = {r.date: r for r in existing_records}
+        
         records_added = 0
         for obs in observations:
             date_str = obs.get('date')
@@ -46,14 +76,13 @@ def fetch_macro_data(session, series_id, indicator_name, start_date, end_date):
                 date_val = datetime.strptime(date_str, '%Y-%m-%d').date()
                 val = float(value_str)
                 
-                # Check if exists
-                indicator = session.query(MacroIndicator).filter_by(indicator_name=indicator_name, date=date_val).first()
-                if not indicator:
-                    indicator = MacroIndicator(indicator_name=indicator_name, date=date_val)
+                if date_val in existing_map:
+                    indicator = existing_map[date_val]
+                    indicator.value = val
+                else:
+                    indicator = MacroIndicator(indicator_name=indicator_name, date=date_val, value=val)
                     session.add(indicator)
                     records_added += 1
-                
-                indicator.value = val
                 
         session.commit()
         return records_added
@@ -72,7 +101,7 @@ def run_ingestion(mode='daily'):
     
     end_date = datetime.today()
     if mode == 'historical':
-        start_date = end_date - timedelta(days=3650) # 10 years
+        start_date = end_date - timedelta(days=14610) # 40 years
         logger.info(f"Running historical macro data ingestion from {start_date.date()} to {end_date.date()}")
     else:
         start_date = end_date - timedelta(days=30) # get at least a month due to reporting delays

@@ -7,3 +7,4 @@ feedparser
 tqdm
 python-dotenv
 pytest
+tabulate
