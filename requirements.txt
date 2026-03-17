@@ -8,3 +8,12 @@ tqdm
 python-dotenv
 pytest
 tabulate
+torch
+transformers
+xgboost
+scikit-learn
+joblib
+backtrader
+matplotlib
+pyarrow
+numpy

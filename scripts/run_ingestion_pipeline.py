@@ -3,6 +3,7 @@ import logging
 from ingest_market_data import run_ingestion as run_market
 from ingest_macro_data import run_ingestion as run_macro
 from ingest_sentiment_data import run_ingestion as run_sentiment
+from process_sentiment import process_sentiments as run_sentiment_processing
 from calculate_indicators import run_calculations as run_technical_indicators
 from ingest_options_data import run_ingestion as run_options
 from view_data import main as generate_report
@@ -34,8 +35,13 @@ def main(mode):
     try:
         logger.info("Initializing Sentiment Data Ingestion...")
         run_sentiment(mode=mode)
+        
+        logger.info("Processing Daily Sentiments with FinBERT...")
+        # For daily mode, checking last 7 days is enough. For historical, maybe more.
+        days_back = 30 if mode == 'historical' else 7
+        run_sentiment_processing(days_back=days_back)
     except Exception as e:
-        logger.error(f"Sentiment data ingestion failed: {e}")
+        logger.error(f"Sentiment data ingestion/processing failed: {e}")
         
     try:
         logger.info("Initializing Options Data Ingestion...")

@@ -47,6 +47,16 @@ class RawSentimentText(Base):
     text_content = Column(Text)
     ticker_mentioned = Column(String(10), nullable=True)
 
+class DailySentiment(Base):
+    __tablename__ = 'daily_sentiment'
+    date = Column(Date, primary_key=True)
+    ticker = Column(String(10), primary_key=True)
+    positive_score = Column(Float)
+    negative_score = Column(Float)
+    neutral_score = Column(Float)
+    unified_score = Column(Float)
+    article_count = Column(Integer)
+
 class TechnicalIndicator(Base):
     __tablename__ = 'technical_indicators'
     ticker = Column(String(10), primary_key=True)
@@ -89,6 +99,15 @@ class DailyOptionsData(Base):
     call_volume = Column(Float)
     put_call_ratio = Column(Float)
     implied_volatility = Column(Float)
+
+class Prediction(Base):
+    __tablename__ = 'predictions'
+    ticker = Column(String(10), primary_key=True)
+    date = Column(Date, primary_key=True)
+    predicted_signal = Column(Integer)
+    predicted_probability = Column(Float)
+    model_version = Column(String(50))
+    created_at = Column(DateTime)
 
 def init_db():
     if engine:

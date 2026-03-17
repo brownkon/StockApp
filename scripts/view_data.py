@@ -17,11 +17,12 @@ def generate_report():
         total_macro = pd.read_sql("SELECT COUNT(*) as c FROM macro_indicators", engine).iloc[0]['c']
         total_tech = pd.read_sql("SELECT COUNT(*) as c FROM technical_indicators", engine).iloc[0]['c']
         total_sent = pd.read_sql("SELECT COUNT(*) as c FROM raw_sentiment_text", engine).iloc[0]['c']
+        total_daily_sent = pd.read_sql("SELECT COUNT(*) as c FROM daily_sentiment", engine).iloc[0]['c']
         total_opt = pd.read_sql("SELECT COUNT(*) as c FROM daily_options_data", engine).iloc[0]['c']
         
         health_data = {
-            "Table": ["daily_prices", "macro_indicators", "technical_indicators", "raw_sentiment_text", "daily_options_data"],
-            "Total Rows": [total_prices, total_macro, total_tech, total_sent, total_opt]
+            "Table": ["daily_prices", "macro_indicators", "technical_indicators", "raw_sentiment_text", "daily_sentiment", "daily_options_data"],
+            "Total Rows": [total_prices, total_macro, total_tech, total_sent, total_daily_sent, total_opt]
         }
         report.append(pd.DataFrame(health_data).to_markdown(index=False) + "\n")
 
@@ -106,9 +107,15 @@ def generate_report():
         df_sent = pd.read_sql("SELECT source, COUNT(*) as posts, MIN(timestamp) as oldest, MAX(timestamp) as newest FROM raw_sentiment_text GROUP BY source", engine)
         report.append("## 💬 Social & News Sentiment Pipeline")
         if df_sent.empty:
-            report.append("> No sentiment data found.\n")
+            report.append("> No raw sentiment data found.\n")
         else:
+            report.append("### Raw Sources\n")
             report.append(df_sent.to_markdown(index=False) + "\n")
+
+        df_daily_sent = pd.read_sql("SELECT date, ticker, round(unified_score::numeric, 3) as unified_score, article_count FROM daily_sentiment ORDER BY date DESC, ticker LIMIT 10", engine)
+        if not df_daily_sent.empty:
+            report.append("### Latest Daily Sentiment Scores (FinBERT)\n")
+            report.append(df_daily_sent.to_markdown(index=False) + "\n")
 
         # 5. Options Flow
         df_opt_latest = pd.read_sql("""
